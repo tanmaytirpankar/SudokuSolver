@@ -1,3 +1,6 @@
+import random
+from random import *
+
 from z3 import *
 
 class Sudoku:
@@ -106,8 +109,60 @@ class Sudoku:
                 print(row)
         return
 
-    def validate(self, row, col, num):
-        return
+    def create_puzzle(self):
+        # Create a 9x9 puzzle with 17 clues
+        s = Solver()
+        cells = [[Int("cell_%s_%s" % (i, j)) for j in range(9)] for i in range(9)]
+        # 1. Each row must have the numbers 1-9 occuring just once
+        row_c = [Distinct(cells[i]) for i in range(9)]
+        # 2. Each column must have the numbers 1-9 occuring just once
+        col_c = [Distinct([cells[i][j] for i in range(9)]) for j in range(9)]
+        # 3. And the numbers 1-9 must occur just once in each of the 9 3x3 sub-boxes of the 9x9 grid
+        box_c = [Distinct([cells[3 * i + j][3 * k + l] for j in range(3) for l in range(3)]) for i in range(3) for k in
+                    range(3)]
+        # 4. Each cell must have a value between 1-9
+        cell_c = [And(cells[i][j] >= 1, cells[i][j] <= 9) for i in range(9) for j in range(9)]
+
+        s.add(row_c + col_c + box_c + cell_c)
+        s.check()
+        m = s.model()
+        solved_puzzle = [[m.evaluate(Int("cell_%s_%s" % (i, j))) for j in range(9)] for i in range(9)]
+        # print solved_puzzle as a 2 dimensional array
+        for row in solved_puzzle:
+            print(row)
+
+        puzzle_c = [cells[i][j] == solved_puzzle[i][j] for i in range(9) for j in range(9)]
+
+        # Remove clues and check if the puzzle still has a unique solution
+        for k in range(3):
+            solution_list = []
+            while len(solution_list) != 1:
+                s.push()
+                puzzle_c[(random.randint(0, len(puzzle_c) - 1))] = True
+                s.add(puzzle_c)
+                while s.check() == sat:
+                    m = s.model()
+                    sol_c = [Int("cell_%s_%s" % (i, j)) != m.evaluate(Int("cell_%s_%s" % (i, j))) for i, j in
+                             self.unknowns]
+                    solution_list.append([[m.evaluate(Int("cell_%s_%s" % (i, j))) for j in range(9)] for i in range(9)])
+                    s.add(Or(sol_c))
+
+
+
+                # print("There is/are %d solutions" % len(solution_list))
+                # for i, solution in enumerate(solution_list):
+                #     print("Solution %d:" % (i + 1))
+                #     for row in solution:
+                #         print(row)
+
+
+            s.add(row_c + col_c + box_c + cell_c)
+            s.add(cells[i][j] != solved_puzzle[i][j])
+            if s.check() == sat:
+                solved_puzzle[i][j] = 0
+
+
+
 
 # main function
 def main():
@@ -117,24 +172,35 @@ def main():
     # Read the Sudoku puzzle from the file
     sudoku.read_puzzle("tests/test2_positive.txt")
 
-    sudoku.print_puzzle()
+    # sudoku.print_puzzle()
 
-    print("\n")
+    # print("\n")
 
     # Solve the puzzle
     # sudoku.solve()
-    sudoku.find_all_solutions()
+    # sudoku.find_all_solutions()
     # sudoku.print_puzzle()
+
+    sudoku.create_puzzle()
 
 
 # Call the main function
 if __name__ == "__main__":
-    main()
-    # x = Int('x')
-    # y = Int('y')
-    # z = Int('z')
-    # s = Solver()
-    # s.add(x > 1, y > 1, z == x + y)
-    # print(s.check())
-    # print(s.model())
-    # print(s.model().evaluate(Int('z')))
+    # main()
+    x = Int('x')
+    y = Int('y')
+    z = Int('z')
+    s = Solver()
+    s.add(x > 1, y > 1, z == x + y)
+    print(s.check())
+    print(s.model())
+    s.push()
+    s.add(z > 10)
+    s.add(z < 100)
+    s.check()
+    print(s.model())
+    print(s)
+    s.pop()
+    print(s)
+    s.check()
+    print(s.model())
